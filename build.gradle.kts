@@ -1,6 +1,5 @@
 plugins {
     id("mihon.library")
-    id("mihon.library.compose")
     kotlin("android")
 }
 
