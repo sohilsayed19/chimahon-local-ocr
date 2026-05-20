@@ -1,6 +1,7 @@
 plugins {
     id("mihon.library")
-    id("mihon.library.compose") // If needed for UI
+    id("mihon.library.compose")
+    kotlin("android")
 }
 
 android {
@@ -27,9 +28,6 @@ dependencies {
     implementation(project(":presentation-core"))
     implementation(project(":domain"))
 
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.bundles.coroutines)
-    implementation(libs.injekt.core)
-    implementation(libs.bundles.ktor)
-    // TFLite dependencies if needed, or rely on bundled .so
+    implementation(compose.foundation)
+    implementation(compose.material3.core)
 }
