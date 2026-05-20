@@ -195,8 +195,7 @@ object LensResponseParser {
             .trim()
         if (cleaned.length < 2) return null
         val printable = cleaned.count { it.code in 0x20..0x7E || it.code >= 0xA0 }
-        val useful = cleaned.count { isJapanese(it) || it.isLetterOrDigit() }
-        return if (printable >= cleaned.length * 9 / 10 && useful > 0) cleaned else null
+        return if (printable >= cleaned.length * 9 / 10) cleaned else null
     }
 
     private fun collectTextHits(root: Message): List<TextHit> {
@@ -230,26 +229,14 @@ object LensResponseParser {
 
     private fun isLikelyOcrText(text: String): Boolean {
         if (text.length !in 2..80) return false
-        if (!text.any { isJapanese(it) }) return false
         val blocked = listOf("google_ocr", "Unsupported", "Request", "mediapipe")
         if (blocked.any { text.contains(it, ignoreCase = true) }) return false
-        val japanese = text.count { isJapanese(it) }
         val ascii = text.count { it.code in 0x21..0x7E }
-        return japanese >= 1 && ascii <= text.length * 3 / 4
+        return ascii <= text.length * 3 / 4 || text.any { it.code in 0x3040..0x9FFF || it.code in 0xAC00..0xD7AF }
     }
 
     private fun normalizeText(text: String): String {
         return text.filterNot { it.isWhitespace() }
-    }
-
-    private fun isJapanese(ch: Char): Boolean {
-        val cp = ch.code
-        return cp in 0x3040..0x309F ||
-                cp in 0x30A0..0x30FF ||
-                cp in 0x3400..0x4DBF ||
-                cp in 0x4E00..0x9FFF ||
-                cp in 0xFF66..0xFF9F ||
-                cp in 0x3000..0x303F
     }
 
     private fun findBox(owner: Message, imageWidth: Int, imageHeight: Int): NormalizedBBox? {
