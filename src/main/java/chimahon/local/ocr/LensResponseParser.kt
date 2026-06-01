@@ -214,8 +214,9 @@ object LensResponseParser {
     }
 
     private fun chooseOcrText(hits: List<TextHit>): List<TextHit> {
+        val blocked = listOf("google_ocr", "Unsupported", "Request", "mediapipe")
         val candidates = hits
-            .filter { isLikelyOcrText(it.text) }
+            .filter { hit -> blocked.none { it2 -> hit.text.contains(it2, ignoreCase = true) } }
             .distinctBy { normalizeText(it.text) }
 
         return candidates.filter { hit ->
@@ -225,14 +226,6 @@ object LensResponseParser {
                         normalizeText(other.text).contains(normalizeText(hit.text))
             }
         }.sortedBy { it.ordinal }
-    }
-
-    private fun isLikelyOcrText(text: String): Boolean {
-        if (text.length !in 2..80) return false
-        val blocked = listOf("google_ocr", "Unsupported", "Request", "mediapipe")
-        if (blocked.any { text.contains(it, ignoreCase = true) }) return false
-        val ascii = text.count { it.code in 0x21..0x7E }
-        return ascii <= text.length * 3 / 4 || text.any { it.code in 0x3040..0x9FFF || it.code in 0xAC00..0xD7AF }
     }
 
     private fun normalizeText(text: String): String {
