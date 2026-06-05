@@ -2,10 +2,10 @@ package chimahon.local.ocr
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.os.SystemClock
 import android.util.Log
 import chimahon.ocr.EngineLine
+import chimahon.ocr.OcrBitmapDecoder
 import chimahon.ocr.OcrLanguage
 import com.google.android.libraries.lens.ondevice.nativeapi.LodeSplitRegistry
 import com.google.android.libraries.lens.ondevice.nativeapi.OnDeviceEngineNativeApi
@@ -52,8 +52,17 @@ class LensEngine(private val context: Context) : chimahon.ocr.OcrEngine {
             init()
         }
         if (!initialized) return emptyList()
-        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return emptyList()
-        return ocrLines(bitmap)
+        val bitmap = try {
+            OcrBitmapDecoder.decode(bytes)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to decode image for local OCR", e)
+            return emptyList()
+        }
+        return try {
+            ocrLines(bitmap)
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     fun ocrLines(bitmap: Bitmap): List<EngineLine> {
