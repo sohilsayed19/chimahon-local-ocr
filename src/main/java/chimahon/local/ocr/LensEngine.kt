@@ -65,11 +65,33 @@ class LensEngine(private val context: Context) : chimahon.ocr.OcrEngine {
         }
     }
 
+    private var dumpCounter = 0
+
     fun ocrLines(bitmap: Bitmap): List<EngineLine> {
         if (!initialized) return emptyList()
         val req = byteArrayOf(0x60, 0x0E, 0x72, 0x00)
         val response = nativeApi.sendRequest(req, bitmap)
         if (response == null || response.isEmpty()) return emptyList()
+
+        if (response.size > 0) {
+            try {
+                val dumpDir = File(context.cacheDir, "ocr_dumps")
+                dumpDir.mkdirs()
+                val baseName = "response_${dumpCounter++}_${bitmap.width}x${bitmap.height}"
+                val rawFile = File(dumpDir, "${baseName}.bin")
+                rawFile.writeBytes(response)
+                Log.d(TAG, "Dumped raw (${response.size} bytes) to ${rawFile.absolutePath}")
+
+                val parsed = LensResponseParser.parse(response, bitmap.width, bitmap.height)
+                val jsonFile = File(dumpDir, "${baseName}.json")
+                jsonFile.writeText(parsed.toJson())
+                Log.d(TAG, "Dumped parsed to ${jsonFile.absolutePath}")
+
+                return parsed.lines
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to dump response", e)
+            }
+        }
 
         val parsed = LensResponseParser.parse(response, bitmap.width, bitmap.height)
         return parsed.lines
@@ -251,6 +273,48 @@ class LensEngine(private val context: Context) : chimahon.ocr.OcrEngine {
     fun destroy() {
         nativeApi.destroy()
         registry.destroy()
+    }
+
+    private fun ParsedLensResponse.toJson(): String = buildString {
+        appendLine("{")
+        appendLine("  \"boxSource\": \"$boxSource\",")
+        appendLine("  \"coordinateWidth\": $coordinateWidth,")
+        appendLine("  \"coordinateHeight\": $coordinateHeight,")
+        appendLine("  \"lines\": [")
+        for ((i, line) in lines.withIndex()) {
+            appendLine("    {")
+            appendLine("      \"text\": ${jsonStr(line.text)},")
+            appendLine("      \"writingDirection\": \"${line.writingDirection?.name ?: "null"}\",")
+            appendLine("      \"characterSize\": ${line.characterSize},")
+            appendLine("      \"hasJpText\": ${line.hasJpText},")
+            appendLine("      \"hasKanji\": ${line.hasKanji},")
+            appendLine("      \"rotation\": ${line.rotation},")
+            appendLine("      \"bbox\": {")
+            appendLine("        \"left\": ${line.bbox.left},")
+            appendLine("        \"top\": ${line.bbox.top},")
+            appendLine("        \"right\": ${line.bbox.right},")
+            appendLine("        \"bottom\": ${line.bbox.bottom},")
+            appendLine("        \"rotation\": ${line.bbox.rotation}")
+            appendLine("      }")
+            val comma = if (i < lines.lastIndex) "," else ""
+            appendLine("    }$comma")
+        }
+        appendLine("  ]")
+        append("}")
+    }
+
+    private fun jsonStr(s: String): String = buildString {
+        append('"')
+        for (c in s) {
+            when (c) {
+                '\\' -> append("\\\\"); '"' -> append("\\\"")
+                '\n' -> append("\\n"); '\r' -> append("\\r")
+                '\t' -> append("\\t"); '\b' -> append("\\b")
+                '\u000C' -> append("\\f")
+                else -> append(c)
+            }
+        }
+        append('"')
     }
 
     fun isInitialized(): Boolean = initialized
