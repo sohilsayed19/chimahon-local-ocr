@@ -2,6 +2,7 @@ package chimahon.local.ocr
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import chimahon.ocr.EngineLine
@@ -233,8 +234,14 @@ class LensEngine(private val context: Context) : chimahon.ocr.OcrEngine {
 
         try {
             System.loadLibrary("lens_asset_init")
-            System.loadLibrary("lens_ondevice_engine_base")
-            System.loadLibrary("lens_ondevice_engine_play_ml")
+            val abi = when {
+                "arm64-v8a" in Build.SUPPORTED_ABIS -> "arm64-v8a"
+                "armeabi-v7a" in Build.SUPPORTED_ABIS -> "armeabi-v7a"
+                else -> error("Unsupported ABI: ${Build.SUPPORTED_ABIS.joinToString()}")
+            }
+            val libDir = File(context.filesDir, "lib/$abi/")
+            System.load(File(libDir, "liblens_ondevice_engine_base.so").absolutePath)
+            System.load(File(libDir, "liblens_ondevice_engine_play_ml.so").absolutePath)
         } catch (e: UnsatisfiedLinkError) {
             Log.e(TAG, "Failed to load native libraries", e)
             return
